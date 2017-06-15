@@ -63,31 +63,44 @@ public class FirstStreamsRunner {
         );
 
         branches[0].to(Constants.READY_TOPIC);
+        //bar -> barValue
+        //qux -> quxValue
+
         branches[0].to(Constants.OUTPUT_TOPIC);
 
         KStream<String, String> dest = builder.stream(Constants.READY_TOPIC);
 
         KTable<String, String> resolvedEntities = branches[1]
                 .flatMapValues((value) -> getDeps(value))
+                //foo - bar
+                //foo - qux
                 .map((key, value) -> new KeyValue<>(value, key))
+                //bar = foo
+                //qux - foo
                 .join(dest, (value1, value2) -> value1 + "->" + value2,
                         JoinWindows.of(TimeUnit.MINUTES.toMillis(500)), stringSerde, stringSerde, stringSerde)
+                //bar - foo->barValue
+                //qux - foo->quxValue
                 .map((key, value) -> {
                     String[] content = value.split("->");
                     return new KeyValue<>(content[0], content[1]);
                 })
+                //foo - barValue
+                //foo - quxValue
                 .groupByKey()
                 .reduce((aggValue, newValue) -> aggValue + ":::" + newValue, "resolved-entities");
-
+                //foo -> barValue::quxValue
 
         KTable<String, String> sourceTable = builder.table(Constants.SOURCE_COPY_TOPIC, "destTableTopic");
-
         KTable<String, String> output = sourceTable.join(resolvedEntities, (value1, value2) -> value1 + ":::" + value2);
+        //foo -> barValue::quxValue::fooValue
+        //process here and call is ready on the set of values
 
         KStream<String, String> outputStream = output.toStream();
+//        outputStream.filter(/* call isReady(quxValue, fooValue) on foo*/ );
 
+        //test readiness here
         outputStream.to(Constants.READY_TOPIC);
-
         outputStream.to(Constants.OUTPUT_TOPIC);
 
         KafkaStreams streams = new KafkaStreams(builder, props);
