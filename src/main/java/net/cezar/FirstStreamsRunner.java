@@ -37,6 +37,16 @@ public class FirstStreamsRunner {
         }
     }
 
+    private static boolean isReady(String key, String value) {
+        if (key.startsWith("foo")) {
+            return value.contains("barValue") && value.contains("quxValue");
+        } else if (key.startsWith("bar")) {
+            return value.contains("bazValue");
+        } else {
+            return true;
+        }
+    }
+
     public static void main(String... args) throws Exception {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-wordcount" + UUID.randomUUID());
@@ -89,15 +99,14 @@ public class FirstStreamsRunner {
                 //foo - quxValue
                 .groupByKey()
                 .reduce((aggValue, newValue) -> aggValue + ":::" + newValue, "resolved-entities");
-                //foo -> barValue::quxValue
+        //foo -> barValue::quxValue
 
         KTable<String, String> sourceTable = builder.table(Constants.SOURCE_COPY_TOPIC, "destTableTopic");
         KTable<String, String> output = sourceTable.join(resolvedEntities, (value1, value2) -> value1 + ":::" + value2);
         //foo -> barValue::quxValue::fooValue
         //process here and call is ready on the set of values
 
-        KStream<String, String> outputStream = output.toStream();
-//        outputStream.filter(/* call isReady(quxValue, fooValue) on foo*/ );
+        KStream<String, String> outputStream = output.toStream().filter((key, value) -> isReady(key, value));
 
         //test readiness here
         outputStream.to(Constants.READY_TOPIC);
