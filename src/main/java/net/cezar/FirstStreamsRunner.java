@@ -60,6 +60,9 @@ public class FirstStreamsRunner {
 
         final Serde<String> stringSerde = Serdes.String();
 
+        //////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
 
         KStreamBuilder builder = new KStreamBuilder();
 
@@ -72,13 +75,13 @@ public class FirstStreamsRunner {
                 (key, value) -> true
         );
 
-        branches[0].to(Constants.READY_TOPIC);
+//        branches[0].to(Constants.READY_TOPIC);
         //bar -> barValue
         //qux -> quxValue
 
         branches[0].to(Constants.OUTPUT_TOPIC);
 
-        KStream<String, String> dest = builder.stream(Constants.READY_TOPIC);
+        KStream<String, String> outputTopic = builder.stream(Constants.OUTPUT_TOPIC);
 
         KTable<String, String> resolvedEntities = branches[1]
                 .flatMapValues((value) -> getDeps(value))
@@ -87,7 +90,7 @@ public class FirstStreamsRunner {
                 .map((key, value) -> new KeyValue<>(value, key))
                 //bar = foo
                 //qux - foo
-                .join(dest, (value1, value2) -> value1 + "->" + value2,
+                .join(outputTopic, (value1, value2) -> value1 + "->" + value2,
                         JoinWindows.of(TimeUnit.MINUTES.toMillis(500)), stringSerde, stringSerde, stringSerde)
                 //bar - foo->barValue
                 //qux - foo->quxValue
@@ -101,7 +104,7 @@ public class FirstStreamsRunner {
                 .reduce((aggValue, newValue) -> aggValue + ":::" + newValue, "resolved-entities");
         //foo -> barValue::quxValue
 
-        KTable<String, String> sourceTable = builder.table(Constants.SOURCE_COPY_TOPIC, "destTableTopic");
+        KTable<String, String> sourceTable = builder.table(Constants.SOURCE_COPY_TOPIC, "srcTable");
         KTable<String, String> output = sourceTable.join(resolvedEntities, (value1, value2) -> value1 + ":::" + value2);
         //foo -> barValue::quxValue::fooValue
         //process here and call is ready on the set of values
@@ -109,8 +112,13 @@ public class FirstStreamsRunner {
         KStream<String, String> outputStream = output.toStream().filter((key, value) -> isReady(key, value));
 
         //test readiness here
-        outputStream.to(Constants.READY_TOPIC);
         outputStream.to(Constants.OUTPUT_TOPIC);
+
+
+        //////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
+
 
         KafkaStreams streams = new KafkaStreams(builder, props);
         streams.start();
@@ -139,8 +147,6 @@ public class FirstStreamsRunner {
             }
         }
 
-        // usually the stream application would be running forever,
-        // in this example we just let it run for some time and stop since the input data is finite.
 
         streams.close();
 
