@@ -24,20 +24,17 @@ import static net.cezar.DependencyTopologyFactory.concatenate;
  * Created by cezargrzelak on 7/3/17.
  */
 public class MyTransformerSupplier<K, V, R> implements TransformerSupplier<K, V, KeyValue<K, List<KeyValue<K, R>>>> {
-    private final String storeName;
     private final String reverseStoreName;
     private final String valueStoreName;
     private final DependencyResolver<K, V> resolver;
     private final Converter<K, V, R> converter;
 
     MyTransformerSupplier(
-            String storeName,
             String reverseStoreName,
             String valueStoreName,
             DependencyResolver<K, V> resolver,
             Converter<K, V, R> converter
     ) {
-        this.storeName = storeName;
         this.reverseStoreName = reverseStoreName;
         this.valueStoreName = valueStoreName;
         this.resolver = resolver;
@@ -77,7 +74,7 @@ public class MyTransformerSupplier<K, V, R> implements TransformerSupplier<K, V,
                 if (allDepsAvailable) {
                     ready = resolver.isResolved(k, v, dependencyMap);
                     if (ready) {
-                        R converted = null;
+                        R converted;
                         if(converter != null) {
                             converted = converter.convert(k,v,dependencyMap);
                         } else {
@@ -124,8 +121,7 @@ public class MyTransformerSupplier<K, V, R> implements TransformerSupplier<K, V,
                             boolean dependantReady =
                                     resolver.isResolved(dependant, dependantValue, dependantDependencyMap);
                             if (dependantReady) {
-                                //this needs to happen recursively!
-                                R converted = null;
+                                R converted;
                                 if(converter != null) {
                                     converted = converter.convert(dependant,dependantValue, dependantDependencyMap);
                                 } else {

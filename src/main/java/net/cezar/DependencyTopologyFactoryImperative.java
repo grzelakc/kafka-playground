@@ -13,12 +13,10 @@ import org.apache.kafka.streams.state.Stores;
 public class DependencyTopologyFactoryImperative<K, V, R> implements DependencyTopologyFactory<K, V, R> {
 
     @Override
-    public void createTopology(
+    public KStream<K, R> createTopology(
             KStreamBuilder builder,
             String name,
-            String inputTopic,
-            String inputCopyTopic,
-            String outputTopic,
+            KStream<K, V> source,
             DependencyResolver<K, V> resolver,
             Converter<K, V, R> converter,
             Serde<K> keySerde,
@@ -26,38 +24,30 @@ public class DependencyTopologyFactoryImperative<K, V, R> implements DependencyT
             Serde<R> returnSerde
     ) {
 
-        StateStoreSupplier lookupStore = Stores.create("lookup-for-" + name)
-                .withKeys(Serdes.String())
-                .withValues(new DependencyTopologyFactory.SetSerde<K>())
-                .inMemory()
-                .build();
-
         StateStoreSupplier reverseLookupStore = Stores.create("reverse-lookup-for-" + name)
-                .withKeys(Serdes.String())
-                .withValues(new DependencyTopologyFactory.SetSerde<String>())
-                .inMemory()
+                .withKeys(keySerde)
+                .withValues(new DependencyTopologyFactory.SetSerde<K>())
+                .persistent()
                 .build();
 
         StateStoreSupplier valueStore = Stores.create("values-for-" + name)
-                .withKeys(Serdes.String())
+                .withKeys(keySerde)
                 .withValues(valueSerde)
                 .persistent()
                 .build();
 
-
-        builder.addStateStore(lookupStore);
         builder.addStateStore(reverseLookupStore);
         builder.addStateStore(valueStore);
 
-        KStream<K, V> source = builder.stream(keySerde, valueSerde, inputTopic);
+//        KStream<K, V> source = builder.stream(keySerde, valueSerde, inputTopic);
 
         MyTransformerSupplier<K, V, R> supplier =
-                new MyTransformerSupplier<>(lookupStore.name(), reverseLookupStore.name(), valueStore.name(),
-                        new MyResolver<>(), converter);
+                new MyTransformerSupplier<>(reverseLookupStore.name(), valueStore.name(), resolver, converter);
 
-        source
-                .transform(supplier, lookupStore.name(), reverseLookupStore.name(), valueStore.name())
-                .flatMap((key, value) -> value)
-                .to(keySerde, returnSerde, outputTopic);
+        return source
+                .transform(supplier, reverseLookupStore.name(), valueStore.name())
+                .flatMap((key, value) -> value);
+
+                //.to(keySerde, returnSerde, outputTopic);
     }
 }

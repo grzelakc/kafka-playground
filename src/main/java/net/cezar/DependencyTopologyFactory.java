@@ -4,6 +4,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KStreamBuilder;
 
 import java.util.HashSet;
@@ -45,12 +46,10 @@ public interface DependencyTopologyFactory<K, V, R> {
         return retn;
     }
 
-    public void createTopology(
+    KStream<K, R> createTopology(
             KStreamBuilder builder,
             String name,
-            String inputTopic,
-            String inputCopyTopic,
-            String outputTopic,
+            KStream<K, V> source,
             DependencyResolver<K, V> resolver,
             Converter<K, V, R> converter,
             Serde<K> keySerde,

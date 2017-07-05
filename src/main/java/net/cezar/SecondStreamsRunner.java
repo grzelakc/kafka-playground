@@ -10,6 +10,7 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KStreamBuilder;
 import org.apache.kafka.streams.state.RocksDBConfigSetter;
 import org.rocksdb.BlockBasedTableConfig;
@@ -24,6 +25,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+
+import static net.cezar.Constants.INPUT_TOPIC;
+import static net.cezar.Constants.OUTPUT_TOPIC;
 
 /**
  * Created by cezargrzelak on 6/29/17.
@@ -63,16 +67,9 @@ public class SecondStreamsRunner {
 //        props.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 10_000);
 //        props.put(StreamsConfig.ROCKSDB_CONFIG_SETTER_CLASS_CONFIG, CustomRocksDBConfig.class);
 
-        MyResolver myResolver = new MyResolver();
-        MyConverter myConverter = new MyConverter();
-
-        System.out.println(myResolver.getDependencies("foo35", null));
-
-
+        MyResolver<String,String> myResolver = new MyResolver<>();
+        MyConverter<String,String,String> myConverter = new MyConverter<>();
         final Serde<String> stringSerde = Serdes.String();
-
-
-        final Serde<Set<String>> collectionSerde = new DependencyTopologyFactoryFunctional.SetSerde<>();
 
         //////////////////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////
@@ -82,13 +79,15 @@ public class SecondStreamsRunner {
 
         KStreamBuilder builder = new KStreamBuilder();
 
-        DependencyResolver<String, String> dependencyResolver = new MyResolver();
-
         DependencyTopologyFactory<String, String, String> dtf = new DependencyTopologyFactoryImperative<>();
 
-        dtf.createTopology(builder, topologyName, Constants.INPUT_TOPIC, Constants.SOURCE_COPY_TOPIC,
-                Constants.OUTPUT_TOPIC, dependencyResolver, myConverter, stringSerde, stringSerde, stringSerde);
+        KStream<String, String> source = builder.stream(stringSerde, stringSerde, INPUT_TOPIC);
 
+        KStream<String, String> outputStream =
+                dtf.createTopology(builder, topologyName, source, myResolver, myConverter,
+                        stringSerde, stringSerde, stringSerde);
+
+        outputStream.to(stringSerde, stringSerde, OUTPUT_TOPIC);
 
         //////////////////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////
@@ -104,13 +103,14 @@ public class SecondStreamsRunner {
         props2.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         props2.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props2.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props2.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, DependencyTopologyFactoryFunctional.SetJsonDeserializer.class);
+        props2.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                DependencyTopologyFactoryFunctional.SetJsonDeserializer.class);
 //        props2.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, IntegerDeserializer.class);
         props2.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
         KafkaConsumer<String, Set<String>> consumer = new KafkaConsumer<>(props2);
 
-        consumer.subscribe(Arrays.asList(Constants.OUTPUT_TOPIC));
+        consumer.subscribe(Arrays.asList(OUTPUT_TOPIC));
 
         int count = 0;
         boolean run = true;
