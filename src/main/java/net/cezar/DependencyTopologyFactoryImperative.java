@@ -13,7 +13,8 @@ import org.apache.kafka.streams.state.Stores;
 public class DependencyTopologyFactoryImperative<K, V, R> implements DependencyTopologyFactory<K, V, R> {
 
     @Override
-    public KStream<K, R> createTopology(
+    public KStream<K, R>
+    createTopology(
             KStreamBuilder builder,
             String name,
             KStream<K, V> source,

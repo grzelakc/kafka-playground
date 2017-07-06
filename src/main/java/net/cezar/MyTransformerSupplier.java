@@ -62,7 +62,6 @@ public class MyTransformerSupplier<K, V, R> implements TransformerSupplier<K, V,
             transform(K k, V v) {
 
                 ArrayList<KeyValue<K, R>> retn = new ArrayList<>();
-
                 valueStore.put(k, v);
 
                 Set<K> dependencies = resolver.getDependencies(k, v);

@@ -14,3 +14,9 @@ import java.util.Set;
 public interface Converter<K, V, R> {
     R convert(K key, V value, Map<K, V> values);
 }
+
+///public class DelegatingConverter
+//implements Converter<IxRecordKey, IxRecord, Pair<IxPipelineKey,IxRecord>>
+//{
+//
+//
